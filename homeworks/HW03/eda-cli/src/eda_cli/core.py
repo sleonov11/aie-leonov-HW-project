@@ -177,6 +177,7 @@ def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> 
     - подозрительно мало строк;
     и т.п.
     """
+
     flags: Dict[str, Any] = {}
     flags["too_few_rows"] = summary.n_rows < 100
     flags["too_many_columns"] = summary.n_cols > 100
@@ -185,12 +186,41 @@ def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> 
     flags["max_missing_share"] = max_missing_share
     flags["too_many_missing"] = max_missing_share > 0.5
 
-    # Простейший «скор» качества
+    # Преобразуем summary в DataFrame для удобства работы
+    summary_df = pd.DataFrame(summary)
+
+    # НОВЫЕ ЭВРИСТИКИ КАЧЕСТВА ДАННЫХ
+
+    # 1. Проверка дубликатов в ID (user_id)
+    if "user_id" in summary_df["name"].values:
+        user_id_stats = summary_df[summary_df["name"] == "user_id"].iloc[0]
+        flags["has_suspicious_id_duplicates"] = user_id_stats["unique"] < summary.n_rows
+        flags["user_id_duplication_rate"] = 1 - (user_id_stats["unique"] / summary.n_rows)
+        flags["user_id_duplicates_count"] = summary.n_rows - user_id_stats["unique"]
+    else:
+        flags["has_suspicious_id_duplicates"] = False
+        flags["user_id_duplication_rate"] = 0.0
+        flags["user_id_duplicates_count"] = 0
+
+    # 2. Проверка на постоянные колонки (все значения одинаковые)
+    constant_columns = summary_df[summary_df["unique"] <= 1]["name"].tolist()
+    flags["has_constant_columns"] = len(constant_columns) > 0
+    flags["constant_columns"] = constant_columns
+    flags["constant_columns_count"] = len(constant_columns)
+
+    # Обновленный «скор» качества с учетом новых эвристик
     score = 1.0
     score -= max_missing_share  # чем больше пропусков, тем хуже
+
     if summary.n_rows < 100:
         score -= 0.2
     if summary.n_cols > 100:
+        score -= 0.1
+
+    # Штрафы за новые проблемы качества
+    if flags["has_suspicious_id_duplicates"]:
+        score -= 0.15
+    if flags["has_constant_columns"]:
         score -= 0.1
 
     score = max(0.0, min(1.0, score))
