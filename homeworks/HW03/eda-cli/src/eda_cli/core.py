@@ -170,15 +170,17 @@ def top_categories(
     return result
 
 
-def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> Dict[str, Any]:
+def compute_quality_flags(
+        df: pd.DataFrame,
+        summary: DatasetSummary,
+        missing_df: pd.DataFrame
+) -> Dict[str, Any]:
     """
-    Простейшие эвристики «качества» данных:
-    - слишком много пропусков;
-    - подозрительно мало строк;
-    и т.п.
+    Простейшие эвристики «качества» данных с новыми проверками.
     """
-
     flags: Dict[str, Any] = {}
+
+    # Существующие проверки
     flags["too_few_rows"] = summary.n_rows < 100
     flags["too_many_columns"] = summary.n_cols > 100
 
@@ -186,41 +188,76 @@ def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> 
     flags["max_missing_share"] = max_missing_share
     flags["too_many_missing"] = max_missing_share > 0.5
 
-    # Преобразуем summary в DataFrame для удобства работы
-    summary_df = pd.DataFrame(summary)
+    # 1. Проверка на константные колонки (все значения одинаковые)
+    constant_cols = []
+    for col in df.columns:
+        if df[col].nunique() <= 1:
+            constant_cols.append(col)
 
-    # НОВЫЕ ЭВРИСТИКИ КАЧЕСТВА ДАННЫХ
+    flags["has_constant_columns"] = len(constant_cols) > 0
+    flags["constant_columns"] = constant_cols
+    flags["constant_columns_count"] = len(constant_cols)
 
-    # 1. Проверка дубликатов в ID (user_id)
-    if "user_id" in summary_df["name"].values:
-        user_id_stats = summary_df[summary_df["name"] == "user_id"].iloc[0]
-        flags["has_suspicious_id_duplicates"] = user_id_stats["unique"] < summary.n_rows
-        flags["user_id_duplication_rate"] = 1 - (user_id_stats["unique"] / summary.n_rows)
-        flags["user_id_duplicates_count"] = summary.n_rows - user_id_stats["unique"]
-    else:
-        flags["has_suspicious_id_duplicates"] = False
-        flags["user_id_duplication_rate"] = 0.0
-        flags["user_id_duplicates_count"] = 0
+    # 2. Проверка на высокую кардинальность категориальных признаков
+    high_card_cols = []
+    for col in df.select_dtypes(include=['object', 'category']).columns:
+        if df[col].nunique() > 100:  # порог = 100 уникальных значений
+            high_card_cols.append({
+                'column': col,
+                'unique_count': df[col].nunique()
+            })
 
-    # 2. Проверка на постоянные колонки (все значения одинаковые)
-    constant_columns = summary_df[summary_df["unique"] <= 1]["name"].tolist()
-    flags["has_constant_columns"] = len(constant_columns) > 0
-    flags["constant_columns"] = constant_columns
-    flags["constant_columns_count"] = len(constant_columns)
+    flags["has_high_cardinality_categoricals"] = len(high_card_cols) > 0
+    flags["high_cardinality_columns"] = high_card_cols
+    flags["high_cardinality_count"] = len(high_card_cols)
 
-    # Обновленный «скор» качества с учетом новых эвристик
+    # 3. Проверка дубликатов в ID (если есть колонка с 'id' в названии)
+    id_cols = [col for col in df.columns if 'id' in col.lower()]
+    id_duplicates = {}
+
+    for col in id_cols:
+        duplicate_count = df[col].duplicated().sum()
+        if duplicate_count > 0:
+            id_duplicates[col] = {
+                'duplicate_count': int(duplicate_count),
+                'duplicate_share': float(duplicate_count / len(df))
+            }
+
+    flags["has_suspicious_id_duplicates"] = len(id_duplicates) > 0
+    flags["id_duplicates"] = id_duplicates
+
+    # 4. Проверка на много нулевых значений в числовых колонках
+    zero_problem_cols = []
+    for col in df.select_dtypes(include='number').columns:
+        zero_count = (df[col] == 0).sum()
+        zero_share = zero_count / len(df) if len(df) > 0 else 0
+        if zero_share > 0.5:  # порог = 50% нулей
+            zero_problem_cols.append({
+                'column': col,
+                'zero_count': int(zero_count),
+                'zero_share': float(zero_share)
+            })
+
+    flags["has_many_zero_values"] = len(zero_problem_cols) > 0
+    flags["many_zero_columns"] = zero_problem_cols
+
+    # Обновленный quality_score с учетом новых эвристик
     score = 1.0
-    score -= max_missing_share  # чем больше пропусков, тем хуже
+    score -= max_missing_share * 0.5  # пропуски важны, но не критичны
 
     if summary.n_rows < 100:
         score -= 0.2
     if summary.n_cols > 100:
         score -= 0.1
 
-    # Штрафы за новые проблемы качества
-    if flags["has_suspicious_id_duplicates"]:
-        score -= 0.15
+    # Штрафы за новые проблемы
     if flags["has_constant_columns"]:
+        score -= 0.15
+    if flags["has_high_cardinality_categoricals"]:
+        score -= 0.1
+    if flags["has_suspicious_id_duplicates"]:
+        score -= 0.2
+    if flags["has_many_zero_values"]:
         score -= 0.1
 
     score = max(0.0, min(1.0, score))
