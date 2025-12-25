@@ -221,6 +221,7 @@ async def quality_from_csv(file: UploadFile = File(...)) -> QualityResponse:
 
     start = perf_counter()
 
+    # Используем функцию с проверками 400
     df = _read_csv_file(file)
 
     # Используем EDA-ядро из S03
