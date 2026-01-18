@@ -1,0 +1,33 @@
+{
+    "S07-hw-dataset-01": {
+        "best_method": "KMeans",
+        "params": {
+            "k": 2,
+            "silhouette": 0.5216395622404242,
+            "davies_bouldin": 0.6853295219054457,
+            "calinski_harabasz": 11786.954622671532,
+            "noise_ratio": 0.0
+        }
+    },
+    "S07-hw-dataset-02": {
+        "best_method": "KMeans",
+        "params": {
+            "k": 2,
+            "silhouette": 0.3068610017701601,
+            "davies_bouldin": 1.3234721699867644,
+            "calinski_harabasz": 3573.3933329348392,
+            "noise_ratio": 0.0
+        }
+    },
+    "S07-hw-dataset-03": {
+        "best_method": "DBSCAN",
+        "params": {
+            "eps": 0.5,
+            "min_samples": 150,
+            "silhouette": 0.39027576764332983,
+            "davies_bouldin": 1.0017950635355413,
+            "calinski_harabasz": 4963.662082438177,
+            "noise_ratio": 0.3917333333333333
+        }
+    }
+}
