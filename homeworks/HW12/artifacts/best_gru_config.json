@@ -1,0 +1,18 @@
+{
+  "model": "GRU",
+  "input_size": 1,
+  "hidden_size": 64,
+  "num_layers": 1,
+  "window_size": 48,
+  "horizon": 1,
+  "batch_size": 32,
+  "learning_rate": 0.001,
+  "optimizer": "Adam",
+  "criterion": "MSELoss",
+  "epochs_max": 50,
+  "patience": 10,
+  "seed": 42,
+  "device": "cuda",
+  "scaler_target": "StandardScaler",
+  "early_stopping_metric": "val_loss"
+}
