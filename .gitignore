@@ -55,3 +55,9 @@ logs/
 *.tmp
 *.bak
 *.old
+/homeworks/HW08-09/data/EMNIST/
+/homeworks/HW08-09/data/KMNIST/
+/homeworks/HW08-09/data/EMNIST/
+/homeworks/HW08-09/data/
+/homeworks/HW10-11/data/
+/homeworks/HW10-11/data_voc/
