@@ -12,7 +12,7 @@
   "epochs_max": 50,
   "patience": 10,
   "seed": 42,
-  "device": "cuda",
+  "device": "cpu",
   "scaler_target": "StandardScaler",
   "early_stopping_metric": "val_loss"
 }
