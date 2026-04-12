@@ -1,0 +1,3 @@
+query,before_retrieved_sources,after_retrieved_sources,changed
+Что такое трансформеры в NLP?,"doc_05, doc_09, doc_04","doc_11, doc_05, doc_09",True
+Назовите примеры больших языковых моделей,"doc_05, doc_06, doc_09","doc_05, doc_12, doc_06",True
